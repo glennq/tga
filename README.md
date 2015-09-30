@@ -7,6 +7,10 @@ provided by the authors at http://ps.is.tue.mpg.de/research_projects/robust-pca
 
 It is implemented with scikit-learn API.
 
+## Todo
+
+Add tests
+
 ## References
 
 [Hauberg, Soren, Aasa Feragen, and Michael J. Black. "Grassmann averages for scalable robust PCA." Computer Vision and Pattern Recognition (CVPR), 2014 IEEE Conference on. IEEE, 2014.](http://files.is.tue.mpg.de/black/papers/RGA2014.pdf)
