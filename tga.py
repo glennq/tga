@@ -16,6 +16,7 @@ def _trimmed_mean_1d(arr, k):
     ----------
     arr: ndarray, shape (n,)
         The one-dimensional input array to perform trimmed mean on
+
     k: int
         The thresholding order for trimmed mean
 
@@ -43,6 +44,7 @@ def _trimmed_mean(X, trim_proportion):
     ----------
     X: ndarray, shape (n_samples, n_features)
         The input matrix to perform trimmed mean on
+
     trim_proportion: float
         The proportion of trim. Largest and smallest 'trim_proportion' are
         trimmed when calculating the mean.
@@ -57,12 +59,89 @@ def _trimmed_mean(X, trim_proportion):
     return np.apply_along_axis(_trimmed_mean_1d, 0, X, k=n_trim)
 
 
-def _reorth():
-    pass
+def _reorth(basis, target, rows=None, alpha=0.5):
+    """Reorthogonalize a vector using iterated Gram-Schmidt
+
+    Parameters
+    ----------
+    basis: ndarray, shape (n_features, n_basis)
+        The matrix whose rows are a set of basis to reorthogonalize against
+
+    target: ndarray, shape (n_features,)
+        The target vector to be reorthogonalized
+
+    rows: {array-like, None}, default None
+        Indices of rows from basis to use. Use all if None
+
+    alpha: float, default 0.5
+        Parameter for determining whether to do a second reorthogonalization.
+
+    Returns
+    -------
+    reorthed_target: ndarray, shape (n_features,)
+        The reorthogonalized vector
+    """
+    if rows is not None:
+        basis = basis[rows]
+    norm_target = norm(target)
+
+    norm_target_old = 0
+    n_reorth = 0
+
+    while norm_target < alpha * norm_target_old or n_reorth == 0:
+        for row in basis:
+            t = fast_dot(row, target)
+            target = target - t * row
+
+        norm_target_old = norm_target
+        norm_target = norm(target)
+        n_reorth += 1
+
+        if n_reorth > 4:
+            # target in span(basis) => accpet target = 0
+            target = np.zeros(basis.shape[0])
+            break
+
+    return target
 
 
 class TGA(BaseEstimator, TransformerMixin):
-    """Trimmed Grassmann Average as robust PCA"""
+    """Trimmed Grassmann Average as robust PCA
+
+    Implementation of Trimmed Grassmann Average by Hauberg S et al.
+
+    Parameters
+    ----------
+    n_components: int, optional, default None
+        Maximum number of components to keep. When not given or None, this
+        is set to n_features (the second dimension of the training data).
+
+    trim_proportion: float, default 0.5
+        The proportion with resepct to n_samples to trim when calculating
+
+    copy: bool, default True
+        If False, data passed to fit are overwritten and running
+        fit(X).transform(X) will not yield the expected results,
+        use fit_transform(X) instead.
+
+    random_state: int or RandomState instance or None (default)
+        Pseudo Random Number generator seed control. If None, use the
+        numpy.random singleton.
+
+    Attributes
+    ----------
+    components_ : array, [n_components, n_features]
+        Top `n_components` principle components.
+
+    mean_ : array, [n_features]
+        Per-feature empirical mean, estimated from the training set.
+
+    References
+    ----------
+    Hauberg, Soren, Aasa Feragen, and Michael J. Black. "Grassmann averages
+        for scalable robust PCA." Computer Vision and Pattern Recognition
+        (CVPR), 2014 IEEE Conference on. IEEE, 2014.
+    """
     def __init__(self, n_components=None, trim_proportion=0.5, copy=True,
                  tol=1e-5, random_state=None):
         self.n_components = n_components
@@ -134,7 +213,7 @@ class TGA(BaseEstimator, TransformerMixin):
         else:
             n_components = self.n_components
 
-        self.components_ = np.empty(n_features, n_components)
+        self.components_ = np.empty((n_components, n_components))
         for k in range(n_components):
             # compute k'th principle component
             mu = rng.rand(n_features) - 0.5
@@ -159,10 +238,10 @@ class TGA(BaseEstimator, TransformerMixin):
 
             # store the estimated vector and possibly re-orthonormalize
             if k > 0:
-                mu = _reorth(self.components_[:, :k-1], mu, 1)
+                mu = _reorth(self.components_[:k-1], mu)
                 mu = mu / norm(mu)
 
-            self.components_[:, k] = mu
+            self.components_[k] = mu
 
             if k < n_components - 1:
                 X = X - fast_dot(fast_dot(X, mu), mu.T)
