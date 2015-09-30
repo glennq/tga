@@ -6,11 +6,58 @@ from sklearn.utils import as_float_array, check_array, check_random_state
 from sklearn.utils.validation import check_is_fitted
 
 
-def trimmed_mean():
-    pass
+def _trimmed_mean_1d(arr, k):
+    """Calculate trimmed mean on a 1d array.
+
+    Trim values largest than the k'th largest value or smaller than the k'th
+    smallest value
+
+    Parameters
+    ----------
+    arr: ndarray, shape (n,)
+        The one-dimensional input array to perform trimmed mean on
+    k: int
+        The thresholding order for trimmed mean
+
+    Returns
+    -------
+    trimmed_mean: float
+        The trimmed mean calculated
+    """
+    kth_smallest = np.partition(arr, k)[k-1]
+    kth_largest = -np.partition(-arr, k)[k-1]
+
+    cnt = 0
+    summation = 0.0
+    for elem in arr:
+        if elem >= kth_smallest and elem <= kth_largest:
+            cnt += 1
+            summation += elem
+    return summation / cnt
 
 
-def reorth():
+def _trimmed_mean(X, trim_proportion):
+    """Calculate trimmed mean on each column of input matrix
+
+    Parameters
+    ----------
+    X: ndarray, shape (n_samples, n_features)
+        The input matrix to perform trimmed mean on
+    trim_proportion: float
+        The proportion of trim. Largest and smallest 'trim_proportion' are
+        trimmed when calculating the mean.
+
+    Returns
+    -------
+    trimmed_mean: ndarray, shape (n_features,)
+        The trimmed mean calculated on each column
+    """
+    n_samples, n_features = X.shape
+    n_trim = int(n_samples * trim_proportion)
+    return np.apply_along_axis(_trimmed_mean_1d, 0, X, k=n_trim)
+
+
+def _reorth():
     pass
 
 
@@ -103,7 +150,8 @@ class TGA(BaseEstimator, TransformerMixin):
             for i in range(n_samples):
                 prev_mu = mu
                 dot_signs = np.sign(fast_dot(X, mu))
-                mu = trimmed_mean(X * dot_signs, self.trim_proportion)
+                mu = _trimmed_mean(X * dot_signs[:, np.newaxis],
+                                   self.trim_proportion)
                 mu = mu / norm(mu)
 
                 if np.max(np.abs(mu - prev_mu)) < self.tol:
@@ -111,7 +159,7 @@ class TGA(BaseEstimator, TransformerMixin):
 
             # store the estimated vector and possibly re-orthonormalize
             if k > 0:
-                mu = reorth(self.components_[:, :k-1], mu, 1)
+                mu = _reorth(self.components_[:, :k-1], mu, 1)
                 mu = mu / norm(mu)
 
             self.components_[:, k] = mu
