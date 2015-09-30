@@ -271,3 +271,24 @@ class TGA(BaseEstimator, TransformerMixin):
             X = X - self.mean_
         X_transformed = fast_dot(X, self.components_.T)
         return X_transformed
+
+    def inverse_transform(self, X):
+        """Transform data back to its original space, i.e.,
+        return an input X_original whose transform would be X
+
+        Parameters
+        ----------
+        X : array-like, shape (n_samples, n_components)
+            New data, where n_samples is the number of samples
+            and n_components is the number of components.
+
+        Returns
+        -------
+        X_original: array-like, shape (n_samples, n_features)
+        """
+        check_is_fitted(self, 'mean_')
+
+        X_original = fast_dot(X, self.components_)
+        if self.mean_ is not None:
+            X_original = X_original + self.mean_
+        return X_original
