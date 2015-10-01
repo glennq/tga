@@ -124,6 +124,9 @@ class TGA(BaseEstimator, TransformerMixin):
         fit(X).transform(X) will not yield the expected results,
         use fit_transform(X) instead.
 
+    tol: float, default 1e-5
+        Tolerance for stopping criterion of grassmann average
+
     random_state: int or RandomState instance or None (default)
         Pseudo Random Number generator seed control. If None, use the
         numpy.random singleton.
@@ -147,6 +150,7 @@ class TGA(BaseEstimator, TransformerMixin):
         self.n_components = n_components
         self.trim_proportion = trim_proportion
         self.copy = copy
+        self.tol = tol
         self.random_state = random_state
 
     def fit(self, X, y=None):
@@ -241,7 +245,8 @@ class TGA(BaseEstimator, TransformerMixin):
             self.components_[k] = mu
 
             if k < n_components - 1:
-                X = X - fast_dot(fast_dot(X, mu), mu.T)
+                X = X - fast_dot(fast_dot(X, mu)[:, np.newaxis],
+                                 mu[np.newaxis, :])
 
     def transform(self, X, y=None):
         """Apply dimensionality reduction on X.
