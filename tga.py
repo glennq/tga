@@ -211,6 +211,9 @@ class TGA(BaseEstimator, TransformerMixin):
 
         if self.n_components is None:
             n_components = X.shape[1]
+        elif not 0 <= self.n_components <= n_features:
+            raise ValueError("n_components=%r invalid for n_features=%d"
+                             % (self.n_components, n_features))
         else:
             n_components = self.n_components
 
