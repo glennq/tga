@@ -179,7 +179,9 @@ class TGA(BaseEstimator, TransformerMixin):
         -------
         X_new : array-like, shape (n_samples, n_components)
         """
-        X = self._fit(X)
+        self._fit(X)
+        if self.copy and self.mean_ is not None:
+            X = X - self.mean_
         return fast_dot(X, self.components_.T)
 
     def _fit(self, X):
@@ -190,11 +192,6 @@ class TGA(BaseEstimator, TransformerMixin):
         X: array-like, shape (n_samples, n_features)
             Training vector, where n_samples in the number of samples and
             n_features is the number of features.
-
-        Returns
-        X : ndarray, shape (n_samples, n_features)
-            The input data, copied, centered and whitened when requested.
-        -------
         """
         if self.trim_proportion < 0 or self.trim_proportion > 0.5:
             raise ValueError('trim_proportion must be between 0 and 0.5,'
@@ -245,8 +242,6 @@ class TGA(BaseEstimator, TransformerMixin):
 
             if k < n_components - 1:
                 X = X - fast_dot(fast_dot(X, mu), mu.T)
-
-        return X
 
     def transform(self, X, y=None):
         """Apply dimensionality reduction on X.
