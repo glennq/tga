@@ -213,7 +213,7 @@ class TGA(BaseEstimator, TransformerMixin):
         else:
             n_components = self.n_components
 
-        self.components_ = np.empty((n_components, n_components))
+        self.components_ = np.empty((n_components, n_features))
         for k in range(n_components):
             # compute k'th principle component
             mu = rng.rand(n_features) - 0.5
