@@ -127,17 +127,21 @@ class TGA(BaseEstimator, TransformerMixin):
     tol: float, default 1e-5
         Tolerance for stopping criterion of grassmann average
 
+    centering: {'mean', 'median'}, default 'mean'
+        Whether to center the data with empirical mean or median
+
     random_state: int or RandomState instance or None (default)
         Pseudo Random Number generator seed control. If None, use the
         numpy.random singleton.
 
     Attributes
     ----------
-    components_ : array, [n_components, n_features]
+    components_: array, [n_components, n_features]
         Top `n_components` principle components.
 
-    mean_ : array, [n_features]
-        Per-feature empirical mean, estimated from the training set.
+    center_: array, [n_features]
+        Per-feature empirical mean or median according to value of 'centering',
+        estimated from the training set.
 
     References
     ----------
@@ -146,11 +150,12 @@ class TGA(BaseEstimator, TransformerMixin):
         (CVPR), 2014 IEEE Conference on. IEEE, 2014.
     """
     def __init__(self, n_components=None, trim_proportion=0.5, copy=True,
-                 tol=1e-5, random_state=None):
+                 tol=1e-5, centering='mean', random_state=None):
         self.n_components = n_components
         self.trim_proportion = trim_proportion
         self.copy = copy
         self.tol = tol
+        self.centering = centering
         self.random_state = random_state
 
     def fit(self, X, y=None):
@@ -184,8 +189,8 @@ class TGA(BaseEstimator, TransformerMixin):
         X_new : array-like, shape (n_samples, n_components)
         """
         self._fit(X)
-        if self.copy and self.mean_ is not None:
-            X = X - self.mean_
+        if self.copy and self.center_ is not None:
+            X = X - self.center_
         return fast_dot(X, self.components_.T)
 
     def _fit(self, X):
@@ -198,7 +203,7 @@ class TGA(BaseEstimator, TransformerMixin):
             n_features is the number of features.
         """
         if self.trim_proportion < 0 or self.trim_proportion > 0.5:
-            raise ValueError('trim_proportion must be between 0 and 0.5,'
+            raise ValueError('`trim_proportion` must be between 0 and 0.5,'
                              ' got %s.' % self.trim_proportion)
 
         rng = check_random_state(self.random_state)
@@ -206,8 +211,14 @@ class TGA(BaseEstimator, TransformerMixin):
         n_samples, n_features = X.shape
         X = as_float_array(X, copy=self.copy)
         # Center data
-        self.mean_ = np.mean(X, axis=0)
-        X -= self.mean_
+        if self.centering == 'mean':
+            self.center_ = np.mean(X, axis=0)
+        elif self.centering == 'median':
+            self.center_ = np.median(X, axis=0)
+        else:
+            raise ValueError("`centering` must be 'mean' or 'median', "
+                             "got %s" % self.centering)
+        X -= self.center_
 
         if self.n_components is None:
             n_components = X.shape[1]
@@ -267,11 +278,11 @@ class TGA(BaseEstimator, TransformerMixin):
         -------
         X_transformed : array-like, shape (n_samples, n_components)
         """
-        check_is_fitted(self, 'mean_')
+        check_is_fitted(self, 'center_')
 
         X = check_array(X)
-        if self.mean_ is not None:
-            X = X - self.mean_
+        if self.center_ is not None:
+            X = X - self.center_
         X_transformed = fast_dot(X, self.components_.T)
         return X_transformed
 
@@ -289,9 +300,9 @@ class TGA(BaseEstimator, TransformerMixin):
         -------
         X_original: array-like, shape (n_samples, n_features)
         """
-        check_is_fitted(self, 'mean_')
+        check_is_fitted(self, 'center_')
 
         X_original = fast_dot(X, self.components_)
-        if self.mean_ is not None:
-            X_original = X_original + self.mean_
+        if self.center_ is not None:
+            X_original = X_original + self.center_
         return X_original
